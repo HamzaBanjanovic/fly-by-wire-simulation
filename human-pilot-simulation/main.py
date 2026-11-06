@@ -61,7 +61,7 @@ async def main():
 
     DT = 1/240 # 1 / ((60 frames per second) * (4 repetitions per frame cuz otherwise its too slow)) -> frame and frame cancel and 1/s becomes s so 1/240s
     U = 3
-    a = 4
+    a = 5
     I = 0
     theta = 0.05  # Degrees for a change, not radians, cunterclockwise as a unit-circle
     omega = 0
@@ -95,10 +95,17 @@ async def main():
             if event.type == pygame.KEYDOWN: # Adding 3 modes - unaided flight, fly-by-wire assisted and pure computer fly-by-wire 
                 if event.key == pygame.K_1 or event.key == pygame.K_KP1:
                     pilot_mode = "user"
+                    I = 0
                 elif event.key == pygame.K_2 or event.key == pygame.K_KP2:
-                    pilot_mode = "fbw"
+                    pilot_mode = "fbw_pid"
+                    I = 0                    
                 elif event.key == pygame.K_3 or event.key == pygame.K_KP3:
+                    pilot_mode = "fbw_pd_a"
+                    I = 0
+                elif event.key == pygame.K_4 or event.key == pygame.K_KP4:
                     pilot_mode = "comp"
+                    I = 0
+                    a += 1
                 print(pilot_mode)
 
         if pygame.mouse.get_pressed()[0]:
@@ -115,15 +122,35 @@ async def main():
         capped_stick_bar = SCREEN_HEIGHT/2-stick*(SCREEN_HEIGHT*0.4) # derived formula from the for 'stick', taking in the capped values of the stick to cap those controls
         #print(stick)
 
-        target = stick * 0.6
-        I = I + (target-theta)*DT
-        if pilot_mode == "user":
-            u = U * stick # final stick push with a coefficient, randing from 3 * (-1) to 3 * 1 -> -3 to 3
-        elif pilot_mode == "fbw":
-            u = 10*(target - theta) - 3*omega + 2 * I   # Implementing classical PID. Regular PD does NOT work since the plane stabilises at the wrong position because of the additional push of the a*theta. alpha = 2 * 0.3 + 10 * (0.3 - 0.3) = 0.6 while alpha = 2 * 0.375 + 10(0.3 - 0.375) = 0 so we need I to measure the addition of previous errors
-        else:
-            pass
+
+
+
+        # 0.75 is just an eyeball, max angle, which is 1.05 minus the max gust of wind possible minus a little more just in case, and if the stick cant go firther its capped as
+        # max for a target is 0.5 * U / a derived from a * max_target = U since U is capped at 3 so theta has to be capped too. <
+        # stick = 1    ->    max target 
+        target = min(abs(stick * 0.75), 0.5 * U / a) * stick # make sure the target is proportional to the stick, so when stick is max which is 100% = 1 only then it shows the full target, so it does not get to the max target halfway through the stick
+        # the min() part just takes whatever is smaller, the sticks current push or the maximum push and uses that since we cannot exceede the max push
         
+        
+
+        
+        I = I + (target-theta)*DT
+        
+        if pilot_mode == "user":
+            target = 0.75 * stick
+            u = target*4 # 3/0.75 = 4
+            
+        elif pilot_mode == "fbw_pid":
+            
+            u = 10*(target - theta) - 3*omega + 2 * I   # Implementing classical PID. Regular PD does NOT work since the plane stabilises at the wrong position because of the additional push of the a*theta. alpha = 2 * 0.3 + 10 * (0.3 - 0.3) = 0.6 while alpha = 2 * 0.375 + 10(0.3 - 0.375) = 0 so we need I to measure the addition of previous errors
+            if u > U:
+                u = U
+            elif u < -U:
+                u = -U
+        elif pilot_mode == "fbw_pd_a": # there is no PID since the times to stabilise have proven this not to work, since it pushes AGAINST the element -a*target(which is there to be a counterpush to the a), making the plane move a more unstable angle.. might add it just as a demonstration
+            u = 10*(target - theta) - 3*omega - a * target
+            
+            
 
          
         # ----
@@ -170,7 +197,7 @@ async def main():
 
         pygame.display.flip()
         
-        clock.tick(60)
+        clock.tick(60) 
         await asyncio.sleep(0)
 
     pygame.quit()
