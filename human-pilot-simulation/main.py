@@ -62,15 +62,28 @@ async def main():
     DT = 1/240 # 1 / ((60 frames per second) * (4 repetitions per frame cuz otherwise its too slow)) -> frame and frame cancel and 1/s becomes s so 1/240s
     U = 3
     a = 4
+    I = 0
     theta = 0.05  # Degrees for a change, not radians, cunterclockwise as a unit-circle
     omega = 0
     alpha = 0
-    target = 0
-    gust = 0 # new variable that is a random push of the air in some direction, directly affecting ang. accel. and used to demonstrate our Integral stabilisation factor
     
+    gust = 0 # new variable that is a random push of the air in some direction, directly affecting ang. accel. and used to demonstrate our Integral stabilisation factor
+    pilot_mode = "user" # user or fly by wire or the pure computer
+    #-------------------------------------------------------------------------------
+
+
+    
+
+
+
+    #-------------------------------------------------------------------------------
+
+
 
     running = True
     while running:
+        
+
         ms = clock.tick(60) # Amount of FRAMES per SECOND so: ONE frame after every 1/60 = 0.01666667s or as it calculates 1s = 1000ms so it outputs 1000/60 = 16.666667 miliseconds per frame MAX, or less, if PC is slow
         # We do not put the frame rate to be 240 because updating the screen 
         # that many times would be demanding and its easier to do 4 physics calculations and 
@@ -78,6 +91,16 @@ async def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            
+            if event.type == pygame.KEYDOWN: # Adding 3 modes - unaided flight, fly-by-wire assisted and pure computer fly-by-wire 
+                if event.key == pygame.K_1 or event.key == pygame.K_KP1:
+                    pilot_mode = "user"
+                elif event.key == pygame.K_2 or event.key == pygame.K_KP2:
+                    pilot_mode = "fbw"
+                elif event.key == pygame.K_3 or event.key == pygame.K_KP3:
+                    pilot_mode = "comp"
+                print(pilot_mode)
+
         if pygame.mouse.get_pressed()[0]:
             running = False
         #print(pygame.mouse.get_pos())
@@ -90,17 +113,38 @@ async def main():
         elif stick < -1:
             stick = -1 
         capped_stick_bar = SCREEN_HEIGHT/2-stick*(SCREEN_HEIGHT*0.4) # derived formula from the for 'stick', taking in the capped values of the stick to cap those controls
-        print(stick)
-        u = U * stick # final stick push with a coefficient, randing from 3 * (-1) to 3 * 1 -> -3 to 3
+        #print(stick)
+
+        target = stick * 0.6
+        I = I + (target-theta)*DT
+        if pilot_mode == "user":
+            u = U * stick # final stick push with a coefficient, randing from 3 * (-1) to 3 * 1 -> -3 to 3
+        elif pilot_mode == "fbw":
+            u = 10*(target - theta) - 3*omega + 2 * I   # Implementing classical PID. Regular PD does NOT work since the plane stabilises at the wrong position because of the additional push of the a*theta. alpha = 2 * 0.3 + 10 * (0.3 - 0.3) = 0.6 while alpha = 2 * 0.375 + 10(0.3 - 0.375) = 0 so we need I to measure the addition of previous errors
+        else:
+            pass
+        
 
          
-            
+        # ----
+
+
+
+
+
+
+
+
+
+
+
+
+
         #print(stick)
         if stick > 0: # Draw rectangles that are used for visualising the pilots push 
             pygame.draw.rect(screen, "saddlebrown", (50,capped_stick_bar,50,SCREEN_HEIGHT*0.5 - capped_stick_bar))
         else:
             pygame.draw.rect(screen, "saddlebrown", (50,SCREEN_HEIGHT*0.5,50,-(SCREEN_HEIGHT*0.5-capped_stick_bar)))
-
 
         
         for step in range(4): # Does 4 steps and ONLY THEN do we draw it, since drawing is demanding
@@ -117,18 +161,13 @@ async def main():
         # Experimenting with making the plane turn around its center of mass. Complicated for some reason. 
         # Process goes like: look at original image, rotate it x degrees, position it exactly on its center 
         # of mass and copy it onto the screen. The screen fill covers the whole canvas over so many pictures
-        # dont pile up on top of each other
-        
+        # dont pile up on top of each other        
         rotated_jet_image = pygame.transform.rotate(jet_image, math.degrees(theta)) # rotate the original image by the angle and store that image as the current one
         rotated_jet_rect = rotated_jet_image.get_rect()
         rotated_jet_rect.x = SCREEN_WIDTH / 2 - 0.5 * rotated_jet_rect.width + center_of_mass_to_image_center_x * math.cos(math.radians(theta)) + center_of_mass_to_image_center_y * math.sin(math.radians(theta))
-        rotated_jet_rect.y = SCREEN_HEIGHT / 2 - 0.5 * rotated_jet_rect.height + center_of_mass_to_image_center_y * math.cos(math.radians(theta)) - center_of_mass_to_image_center_x * math.sin(math.radians(theta)) # I gave up on this part cuz it didnt work AI helped me with this minus and nudged me a little
-        screen.blit(rotated_jet_image, (rotated_jet_rect.x, rotated_jet_rect.y))    # image is copied onto the surface and put on a position
+        rotated_jet_rect.y = SCREEN_HEIGHT / 2 - 0.5 * rotated_jet_rect.height + center_of_mass_to_image_center_y * math.cos(math.radians(theta)) - center_of_mass_to_image_center_x * math.sin(math.radians(theta)) # I gave up on this part cuz it didnt work.. you gotta split the main vector from the center of image to center of mass into two vectors but those two vectros also gain their own two vectors since they turn too and the x vector now has y component and y vector has x component and thats why we have two sin and cos per vector.. AI helped me with this minus and nudged me a little 
+        screen.blit(rotated_jet_image, (rotated_jet_rect.x, rotated_jet_rect.y))    # image is copied onto the surface and put on a position     
 
-        
-        
-
-        
         pygame.display.flip()
         
         clock.tick(60)
