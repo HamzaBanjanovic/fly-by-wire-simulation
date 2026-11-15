@@ -4,6 +4,7 @@ import asyncio
 import random
 import sys
 
+from itertools import cycle # for the mode iterations
 import pygame
 
 #--------------------------------------------------------------------
@@ -130,13 +131,6 @@ def draw_transparent_rect(x_center, y_center, width, height, color_with_transpar
 
 
 async def main():
-    
-    
-
-
-
-
-
 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
@@ -201,6 +195,9 @@ async def main():
 
     time = 0
     ladder = False
+    game_mode_list = ["freeflight", "ladder", "lead"]
+    mode_cycler = cycle(game_mode_list)
+    game_mode = next(mode_cycler)
     game_state = "start"    
     running = True
     while running:
@@ -239,10 +236,18 @@ async def main():
                         a -=1
                         if(a == 0):
                             a = -1
-                    elif event.key == pygame.K_6 or event.key == pygame.K_KP6:                   
-                        ladder = True
+                    elif event.key == pygame.K_m:   
+                        game_mode = next(mode_cycler)
+                        print(game_mode)
                     elif event.key == pygame.K_r:
                         game_state = "start"
+                    elif event.key == pygame.K_RIGHT:
+                        lag_ms += 50
+                        queue = [0]*round(lag_ms / 1000 / DT) + queue
+                    elif event.key == pygame.K_LEFT:
+                        lag_ms = max(0, lag_ms - 50)
+                        queue = [0]*round(lag_ms / 1000 / DT) + queue
+
                 elif game_state == "start":                        
                     if event.key == pygame.K_SPACE:
                         game_state = "flying"
@@ -277,7 +282,7 @@ async def main():
 
 
             target = make_target(stick, a) 
-            print(target)
+            #print(target)
             
 
             
@@ -286,9 +291,8 @@ async def main():
             
             u = pilot_push(pilot_mode, stick, target, theta, omega, a, I)
                 
-            if ladder == True:
-                time += ms / 1000
-                
+            if game_mode == "ladder":
+                time += ms / 1000                
                 a = 1 + int(time//5)
             
 
