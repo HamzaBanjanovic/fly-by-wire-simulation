@@ -126,15 +126,12 @@ def draw_transparent_rect(x_center, y_center, width, height, color_with_transpar
     rectangle_surface.fill(color_with_transparency)
 
     rect = rectangle_surface.get_rect(center=(x_center,y_center))
-    
-    
-
     screen.blit(rectangle_surface, (rect.x,rect.y))
 
 
 async def main():
-    #input()
-    crashed = 0
+    
+    
 
 
 
@@ -244,10 +241,17 @@ async def main():
                             a = -1
                     elif event.key == pygame.K_6 or event.key == pygame.K_KP6:                   
                         ladder = True
+                    elif event.key == pygame.K_r:
+                        game_state = "start"
                 elif game_state == "start":                        
                     if event.key == pygame.K_SPACE:
                         game_state = "flying"
                         theta, omega, gust, I, queue = new_run(lag_ms)
+                elif game_state == "crashed":
+                    if event.key == pygame.K_SPACE:
+                        game_state = "flying"
+                        theta, omega, gust, I, queue = new_run(lag_ms)
+
                     
 
 
@@ -285,7 +289,7 @@ async def main():
             if ladder == True:
                 time += ms / 1000
                 
-                a = 1 + int(time//0.1)
+                a = 1 + int(time//5)
             
 
 
@@ -313,9 +317,8 @@ async def main():
                 theta, omega = physics_step(theta, omega, a, 0, u_used)
             
             if abs(theta) > 1.05: # Resets the plane when it is clear it will crash
-                theta = 0.05
-                omega = 0
-                crashed += 1
+                game_state = "crashed"
+                
 
         #-----------------------------------------------------------------draw:
         screen.fill("skyblue")      
@@ -327,6 +330,11 @@ async def main():
             text_font = pygame.font.SysFont("Arial", 30)
             draw_text("Fly-by-wire fighter jet stabilisation", text_font, (255,255,255), SCREEN_WIDTH//2, SCREEN_HEIGHT//4-170//4, screen)
             draw_text("Press SPACE to begin", text_font, (255,255,255), SCREEN_WIDTH//2, SCREEN_HEIGHT//4+170//4, screen)
+        elif game_state == "crashed":
+            draw_transparent_rect(SCREEN_WIDTH//2, SCREEN_HEIGHT//4, 520, 170, (255,0,0,150), screen)
+            text_font = pygame.font.SysFont("Arial", 20)
+            draw_text("LOST CONTROL, press SPACE to restart", text_font, (255,255,255), SCREEN_WIDTH//2, SCREEN_HEIGHT//4-170//4, screen)
+            
 
         
 
