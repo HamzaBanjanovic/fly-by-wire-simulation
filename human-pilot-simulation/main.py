@@ -37,12 +37,17 @@ def read_stick(mouse_y):
         stick = -1 
     return stick
 def draw_stick_bar(screen, stick):
-    capped_stick_bar = SCREEN_HEIGHT/2-stick*(SCREEN_HEIGHT*0.4) # derived formula from the for 'stick', taking in the capped values of the stick to cap those controls, since the rectangles need the TOP/BOTTTOM position of the rectangle 
+    capped_stick_bar = SCREEN_HEIGHT//2-stick*(SCREEN_HEIGHT*0.4) # derived formula from the for 'stick', taking in the capped values of the stick to cap those controls, since the rectangles need the TOP/BOTTTOM position of the rectangle 
+    #pygame.draw.rect(screen, "white", (50,SCREEN_HEIGHT//2-(SCREEN_HEIGHT*0.4),34,SCREEN_HEIGHT*0.5 - (SCREEN_HEIGHT//2-(SCREEN_HEIGHT*0.4))))
+    #pygame.draw.rect(screen, "white", (50,SCREEN_HEIGHT*0.5,34,-(SCREEN_HEIGHT*0.5-(SCREEN_HEIGHT//2+(SCREEN_HEIGHT*0.4)))))
 
-    if stick > 0: # Draw rectangles that are used for visualising the pilots push 
-        pygame.draw.rect(screen, "saddlebrown", (50,capped_stick_bar,50,SCREEN_HEIGHT*0.5 - capped_stick_bar))
-    else:
-        pygame.draw.rect(screen, "saddlebrown", (50,SCREEN_HEIGHT*0.5,50,-(SCREEN_HEIGHT*0.5-capped_stick_bar)))
+    # CLEAN UP THIS PART KASNIJE
+
+    pygame.draw.rect(screen, "white", (50,SCREEN_HEIGHT//2-(SCREEN_HEIGHT*0.4),34,-2*(SCREEN_HEIGHT*0.5-(SCREEN_HEIGHT//2+(SCREEN_HEIGHT*0.4)))))
+    if stick > 0: # Draw rectangles that are used for visualising the pilots push         
+        pygame.draw.rect(screen, "saddlebrown", (50,capped_stick_bar,34,SCREEN_HEIGHT*0.5 - capped_stick_bar))
+    else:        
+        pygame.draw.rect(screen, "saddlebrown", (50,SCREEN_HEIGHT*0.5,34,-(SCREEN_HEIGHT*0.5-capped_stick_bar)))
 
 
 def make_target(stick, a):
@@ -52,6 +57,8 @@ def make_target(stick, a):
         # the min() part just takes whatever is smaller, the sticks current push or the maximum push and uses that since we cannot exceede the max push
         # make sure the target is proportional to the stick, so when stick is max which is 100% = 1 only then it shows the full target, so it does not get to the max target halfway through the stick
     return (abs(stick)/stick)*min(abs(stick * 0.75), 0.5 * U / a) if stick != 0 else 0
+
+    # GOTTA FIX THIS ITS MESSED UP WITH NEGATIVE VALUES
 
 def mouse_y(mouse_pos):
     return pygame.mouse.get_pos()[1]
@@ -73,11 +80,11 @@ def pilot_push(pilot_mode, stick, target, theta, omega, a, I):
         u = max(-U,min(U,u)) # bound u between U and -U
         return u
     elif pilot_mode == "fbw_pd_best": # there is no PID since the times to stabilise have proven this not to work, since it pushes AGAINST the element -a*target(which is there to be a counterpush to the a), making the plane move a more unstable angle.. might add it just as a demonstration
-        u = (2*a+6)*(target - theta) - 5*a*omega - a * target   
+        u = (2*a+6)*(target - theta) - (a/3+5)*omega - a * target   # add the derivation of the (2*a+6) and (a/3+5)
         u = max(-U,min(U,u)) # bound u between U and -U
         return u 
     elif pilot_mode == "comp":
-        u = (2*a+6)*(0 - theta) - 3*omega
+        u = (2*a+6)*(0 - theta) - (a/3+5)*omega
         u = max(-U,min(U,u)) # bound u between U and -U
         return u
 
@@ -110,9 +117,24 @@ def get_image(image_file_name):
     image = pygame.image.load(image_path).convert_alpha()
     return image
 
+def draw_text(text, font, text_col, x_center, y_center, screen):
+    img = font.render(text, True, text_col)
+    rect = img.get_rect(center=(x_center,y_center))
+    screen.blit(img, (rect.x,rect.y))
+def draw_transparent_rect(x_center, y_center, width, height, color_with_transparency, screen):
+    rectangle_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    rectangle_surface.fill(color_with_transparency)
+
+    rect = rectangle_surface.get_rect(center=(x_center,y_center))
+    
+    
+
+    screen.blit(rectangle_surface, (rect.x,rect.y))
+
+
 async def main():
     #input()
-
+    crashed = 0
 
 
 
@@ -263,8 +285,9 @@ async def main():
             if ladder == True:
                 time += ms / 1000
                 
-                a = 1 + int(time//5)
-                print(a)
+                a = 1 + int(time//0.1)
+            
+
 
 
 
@@ -292,21 +315,26 @@ async def main():
             if abs(theta) > 1.05: # Resets the plane when it is clear it will crash
                 theta = 0.05
                 omega = 0
+                crashed += 1
 
         #-----------------------------------------------------------------draw:
-        screen.fill("skyblue")
+        screen.fill("skyblue")      
+        draw_jet(screen, jet_image, theta, center_of_mass_to_image_center_x, center_of_mass_to_image_center_y)        
         if game_state == "flying":            
             draw_stick_bar(screen, stick)
         elif game_state == "start":
-            pass
-      
-        draw_jet(screen, jet_image, theta, center_of_mass_to_image_center_x, center_of_mass_to_image_center_y)
+            draw_transparent_rect(SCREEN_WIDTH//2, SCREEN_HEIGHT//4, 520, 170, (0,0,0,150), screen)
+            text_font = pygame.font.SysFont("Arial", 30)
+            draw_text("Fly-by-wire fighter jet stabilisation", text_font, (255,255,255), SCREEN_WIDTH//2, SCREEN_HEIGHT//4-170//4, screen)
+            draw_text("Press SPACE to begin", text_font, (255,255,255), SCREEN_WIDTH//2, SCREEN_HEIGHT//4+170//4, screen)
 
-        pygame.display.flip()
         
-         
-        await asyncio.sleep(0) # line used for asyncio for some reason
 
+        pygame.display.flip()        
+        await asyncio.sleep(0) # line used for asyncio for some reason
     pygame.quit()
+
+
+
 if __name__ == "__main__":
     asyncio.run(main())
